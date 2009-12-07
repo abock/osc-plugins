@@ -136,7 +136,7 @@ def prune (self, package_name, local_binaries, keep_binary, verbose):
         if not binary == keep_binary and self.get_rpm_package_name (binary) == package_name:
             self.prune_stats['files'].append (binary)
             self.prune_stats['bytes'] += os.stat (binary).st_size
-            if opts.verbose:
+            if verbose:
                 print '    Removed obsolete %s' % os.path.basename (binary)
 
 
