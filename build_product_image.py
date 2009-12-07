@@ -12,7 +12,13 @@ def do_build_product_image (self, subcmd, opts, *args):
     package.dir = '.'
 
     # Load image configuration and run pre-build checks
-    self.load_product_image_rc (package)
+    self.load_product_image_rc (package, 'build-product-image.config.py', True)
+    self.load_product_image_rc (package, 'build-product-image.config-local.py', False)
+
+    if self.build_product_config['build_root']:
+        conf.config['build-root'] = self.build_product_config['build_root']
+        os.environ['OSC_BUILD_ROOT'] = conf.config['build-root']
+
     self.check_package (package)
     if self.build_product_config['create_iso']:
         self.check_for_iso_support ()
@@ -23,16 +29,18 @@ def do_build_product_image (self, subcmd, opts, *args):
         self.enforce_required_file (required_file)
 
     self.run_rule_set ('pre build', self.build_product_config['pre_build_rules'])
-
     self.build_image (package)
-
     self.run_rule_set ('post build', self.build_product_config['post_build_rules'])
 
+    self.post_process_build ()
 
-def load_product_image_rc (self, package):
-    image_rc_path = os.path.join (os.getcwd (), 'build-product-image.config.py')
+
+def load_product_image_rc (self, package, config_file, required):
+    image_rc_path = os.path.join (os.getcwd (), config_file)
     if not os.path.isfile (image_rc_path):
-        self.fatal_error ('There is no product-image.rc.py file defined to build a product image: %s' % \
+        if not required:
+            return
+        self.fatal_error ('There is no config file defined to build a product image: %s' % \
             image_rc_path)
     exec open (image_rc_path).read ()
 
@@ -83,6 +91,59 @@ def build_image (self, package):
                 SUSE_SLE-11_GA i586 \
                 suse-moblin-rescue.kiwi
     """)
+
+
+def post_process_build (self):
+    import glob
+    import shutil
+
+    print 'Post-processing the build...'
+
+    buildroot = conf.config['build-root']
+    suse_moblin_release_file = '%s/usr/src/packages/KIWIROOT-oem/etc/SuSE-moblin-release' % buildroot
+    usb_file = glob.glob ('%s/usr/src/packages/KIWI-oem/*.install.raw' % buildroot)
+    if usb_file == []:
+        self.fatal_error ('Could not locate the raw USB image.')
+    usb_file = usb_file[0]
+    build_id = ''
+
+    if os.path.isfile (suse_moblin_release_file):
+        suse_moblin_release = {}
+        with open (suse_moblin_release_file, 'r') as fp:
+            r = re.compile ('^([A-Z_]+)\s*=\s*"?([A-Za-z0-9\._\- ]+)"?$')
+            for line in fp.readlines ():
+                line = line.strip ()
+                m = r.match (line)
+                if m: suse_moblin_release[m.group (1)] = m.group (2)
+        try:
+            build_id = '%s-%s' % (suse_moblin_release['SUSE_MOBLIN_RELEASE_FLAVOR'],
+                suse_moblin_release['SUSE_MOBLIN_BUILD_ID'])
+            print 'Found /etc/SuSE-moblin-release, build ID is %s' % build_id
+        except:
+            pass
+
+    shutil.rmtree ('output', ignore_errors = True)
+    os.makedirs ('output', 0755)
+    shutil.copy2 (usb_file, os.path.join ('output', '%s.usb.raw' % build_id))
+
+    if self.build_product_config['create_iso']:
+        self.create_iso (build_id)
+
+    self.md5sum_for_directory ('output')
+
+    if self.build_product_config['output_location']:
+        if not os.path.isdir (self.build_product_config['output_location']):
+            os.makedirs (self.build_product_config['output_location'])
+        shutil.move ('output', os.path.join (self.build_product_config['output_location'], build_id))
+    else:
+        shutil.move ('output', build_id)
+
+
+def create_iso (self, build_id):
+    usb_file = os.path.join ('output', '%s.usb.raw' % build_id)
+    iso_file = os.path.join ('output', '%s.iso' % build_id)
+    self.run_shell ('rescue-dvd-tool/create-rescue-dvd "%s" "%s"' % \
+        (usb_file, iso_file))
 
 
 ## Prepare Rules ##
@@ -170,3 +231,28 @@ def iter_flatten (self, iterable):
         else:
             yield e
 
+def md5sum (self, path):
+    import hashlib
+    with open (path, 'rb') as fp:
+        hash = hashlib.md5 ()
+        while True:
+            block = fp.read (8096)
+            if not block:
+                break
+            hash.update (block)
+        return hash.hexdigest ()
+
+
+def md5sum_for_directory (self, root):
+    md5sums = {}
+    for path in os.listdir (root):
+        full_path = os.path.join (root, path)
+        if os.path.isdir (full_path):
+            self.md5sum_for_directory (full_path)
+            continue
+        elif os.path.isfile (full_path) and not path == 'md5sum':
+            md5sums[path] = self.md5sum (full_path)
+    if not md5sums == {}:
+        with open (os.path.join (root, 'md5sum'), 'w+') as fp:
+            for path, sum in md5sums.items ():
+                fp.write ('%s  %s\n' % (sum, path))
