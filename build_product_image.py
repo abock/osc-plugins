@@ -15,24 +15,24 @@ def do_build_product_image (self, subcmd, opts, *args):
     self.load_product_image_rc (package, 'build-product-image.config.py', True)
     self.load_product_image_rc (package, 'build-product-image.config-local.py', False)
 
-    if self.build_product_config['build_root']:
+    if self.build_product_config.has_key ('build_root'):
         conf.config['build-root'] = self.build_product_config['build_root']
         os.environ['OSC_BUILD_ROOT'] = conf.config['build-root']
 
     self.check_package (package)
-    if self.build_product_config['create_iso']:
+    if self.build_product_config.has_key ('create_iso'):
         self.check_for_iso_support ()
     self.check_for_local_changes (package)
     self.update_package (package)
 
-    if self.build_product_config['required_files']:
+    if self.build_product_config.has_key ('required_files'):
         for required_file in self.build_product_config['required_files']:
             self.enforce_required_file (required_file)
 
-    if self.build_product_config['pre_build_rules']:
+    if self.build_product_config.has_key ('pre_build_rules'):
         self.run_rule_set ('pre build', self.build_product_config['pre_build_rules'])
     self.build_image (package)
-    if self.build_product_config['post_build_rules']:
+    if self.build_product_config.has_key ('post_build_rules'):
         self.run_rule_set ('post build', self.build_product_config['post_build_rules'])
 
     self.post_process_build ()
@@ -86,14 +86,18 @@ def update_package (self, package):
 
 
 def build_image (self, package):
-    print 'Building image %s' % package.name
+    build_no_verify = ''
+    if self.build_product_config.has_key ('build_no_verify'):
+        build_no_verify = '--no-verify'
+    print 'Building image %s %s' % (package.name, build_no_verify)
     self.run_shell ("""
         osc --no-keyring \
             build \
                 --clean \
+                %s \
                 SUSE_SLE-11_GA i586 \
                 suse-moblin-rescue.kiwi
-    """)
+    """ % build_no_verify)
 
 
 def post_process_build (self):
@@ -129,12 +133,12 @@ def post_process_build (self):
     os.makedirs ('output', 0755)
     shutil.copy2 (usb_file, os.path.join ('output', '%s.usb.raw' % build_id))
 
-    if self.build_product_config['create_iso']:
+    if self.build_product_config.has_key ('create_iso'):
         self.create_iso (build_id)
 
     self.md5sum_for_directory ('output')
 
-    if self.build_product_config['output_location']:
+    if self.build_product_config.has_key ('output_location'):
         if not os.path.isdir (self.build_product_config['output_location']):
             os.makedirs (self.build_product_config['output_location'])
         shutil.move ('output', os.path.join (self.build_product_config['output_location'], build_id))
