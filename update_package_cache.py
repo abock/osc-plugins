@@ -127,8 +127,8 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
             self.prune (package, local_binaries, new_target_filename, opts.verbose)
 
     if not self.prune_stats['files'] == []:
-        print '%d obsolete RPMs removed (%d KB)' % (len (self.prune_stats['files']),
-            self.prune_stats['bytes'])
+        print '%d obsolete RPMs removed (%d MB)' % (len (self.prune_stats['files']),
+            self.prune_stats['bytes'] / 1024 / 1024)
 
 
 def prune (self, package_name, local_binaries, keep_binary, verbose):
