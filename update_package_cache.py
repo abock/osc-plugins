@@ -23,6 +23,10 @@
     help='Remove older versions of packages that have '
          'been previously downloaded.')
 
+@cmdln.option ('-y', '--dry-run', action='store_true',
+    help='Do not actually download or prune any files, just report '
+         'what would happen. Required --v|--verbose.')
+
 @cmdln.option ('-v', '--verbose', action='store_true',
     help='Show extra progress and processing details.')
 
@@ -54,7 +58,8 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
     if not os.path.isdir (opts.destdir):
         if opts.verbose:
             print 'Creating cache directory: %s' % opts.destdir
-        os.makedirs (opts.destdir, 0755)
+        if not opts.dry_run:
+            os.makedirs (opts.destdir, 0755)
     elif opts.verbose:
         print 'Using cache directory: %s' % opts.destdir
 
@@ -96,7 +101,7 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
             if opts.verbose:
                 print '    Skipping, found %s' % os.path.basename (skip_binary)
             if opts.prune:
-                self.prune (package, local_binaries, skip_binary, opts.verbose)
+                self.prune (package, local_binaries, skip_binary, opts.verbose, opts.dry_run)
             continue
         elif opts.existing and local_binaries == []:
             if opts.verbose:
@@ -110,6 +115,11 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
         else:
             print '%d/%d %dMB: ' % (finished_binaries, total_binaries,
                 binary.size / 1024 / 1024),
+
+        if opts.dry_run:
+            print 'Skipping download: dry run'
+            continue
+
         get_binary_file (apiurl, project, repository, architecture,
             binary.name,
             target_filename = target_filename,
@@ -124,20 +134,22 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
         os.rename (target_filename, new_target_filename)
 
         if opts.prune and not local_binaries == []:
-            self.prune (package, local_binaries, new_target_filename, opts.verbose)
+            self.prune (package, local_binaries, new_target_filename, opts.verbose, False)
 
     if not self.prune_stats['files'] == []:
         print '%d obsolete RPMs removed (%d MB)' % (len (self.prune_stats['files']),
             self.prune_stats['bytes'] / 1024 / 1024)
 
 
-def prune (self, package_name, local_binaries, keep_binary, verbose):
+def prune (self, package_name, local_binaries, keep_binary, verbose, dry_run):
     for binary in local_binaries[:]:
         if not binary == keep_binary and self.get_rpm_package_name (binary) == package_name:
             self.prune_stats['files'].append (binary)
             self.prune_stats['bytes'] += os.stat (binary).st_size
             if verbose:
                 print '    Removed obsolete %s' % os.path.basename (binary)
+            if not dry_run:
+                os.remove (binary)
 
 
 def get_rpm_package_name (self, filename):
