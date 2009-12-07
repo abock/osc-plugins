@@ -250,9 +250,9 @@ def md5sum_for_directory (self, root):
         if os.path.isdir (full_path):
             self.md5sum_for_directory (full_path)
             continue
-        elif os.path.isfile (full_path) and not path == 'md5sum':
+        elif os.path.isfile (full_path) and not path == 'md5sums':
             md5sums[path] = self.md5sum (full_path)
     if not md5sums == {}:
-        with open (os.path.join (root, 'md5sum'), 'w+') as fp:
+        with open (os.path.join (root, 'md5sums'), 'w+') as fp:
             for path, sum in md5sums.items ():
                 fp.write ('%s  %s\n' % (sum, path))
