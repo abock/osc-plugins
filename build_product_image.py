@@ -25,12 +25,15 @@ def do_build_product_image (self, subcmd, opts, *args):
     self.check_for_local_changes (package)
     self.update_package (package)
 
-    for required_file in self.build_product_config['required_files']:
-        self.enforce_required_file (required_file)
+    if self.build_product_config['required_files']:
+        for required_file in self.build_product_config['required_files']:
+            self.enforce_required_file (required_file)
 
-    self.run_rule_set ('pre build', self.build_product_config['pre_build_rules'])
+    if self.build_product_config['pre_build_rules']:
+        self.run_rule_set ('pre build', self.build_product_config['pre_build_rules'])
     self.build_image (package)
-    self.run_rule_set ('post build', self.build_product_config['post_build_rules'])
+    if self.build_product_config['post_build_rules']:
+        self.run_rule_set ('post build', self.build_product_config['post_build_rules'])
 
     self.post_process_build ()
 
