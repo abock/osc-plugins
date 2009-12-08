@@ -38,18 +38,7 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
     """
     
     import glob
-
-    apiurl = conf.config['apiurl']
-
-    self.prune_stats = { 'files': [], 'bytes': 0 }
-
-    if opts.verbose:
-        print 'Fetching package list for %s/%s/%s/%s' % (apiurl, project, 
-            repository, architecture)
-    binaries = get_binarylist (apiurl, project, 
-        repository, architecture, verbose = True)
-    if binaries == []:
-        sys.exit ('no binaries found.')
+    import fcntl
 
     if not opts.destdir:
         opts.destdir = os.path.join (self.get_package_cache_dir (),
@@ -62,6 +51,24 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
             os.makedirs (opts.destdir, 0755)
     elif opts.verbose:
         print 'Using cache directory: %s' % opts.destdir
+
+    try:
+        lock_file = os.path.join (opts.destdir, 'osc-update-package-cache.lock')
+        lock_handle = open (lock_file, 'w+')
+        fcntl.lockf (lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except:
+        sys.exit ('Unable to acquire lock. An update may already be in progress for this tree.')
+
+    apiurl = conf.config['apiurl']
+    self.prune_stats = { 'files': [], 'bytes': 0 }
+
+    if opts.verbose:
+        print 'Fetching package list for %s/%s/%s/%s' % (apiurl, project,
+            repository, architecture)
+    binaries = get_binarylist (apiurl, project,
+        repository, architecture, verbose = True)
+    if binaries == []:
+        sys.exit ('No binaries found.')
 
     finished_bytes = 0
     finished_binaries = 0
@@ -139,6 +146,9 @@ def do_update_package_cache (self, subcmd, opts, project, repository, architectu
     if not self.prune_stats['files'] == []:
         print '%d obsolete RPMs removed (%d MB)' % (len (self.prune_stats['files']),
             self.prune_stats['bytes'] / 1024 / 1024)
+
+    lock_handle.close ()
+    os.unlink (lock_file)
 
 
 def prune (self, package_name, local_binaries, keep_binary, verbose, dry_run):
