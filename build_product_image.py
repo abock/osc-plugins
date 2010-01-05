@@ -134,7 +134,13 @@ def post_process_build (self):
     shutil.copy2 (usb_file, os.path.join ('output', '%s.usb.raw' % build_id))
 
     if self.build_product_config.has_key ('create_iso'):
-        self.create_iso (build_id)
+        self.build_product_config.setdefault ('iso_restore_message',
+            'Restoring Linux')
+        self.build_product_config.setdefault ('iso_restore_grub_label',
+            'Restore Linux')
+        self.create_iso (build_id,
+            self.build_product_config['iso_restore_message'],
+            self.build_product_config['iso_restore_grub_label'])
 
     self.md5sum_for_directory ('output')
 
@@ -146,11 +152,11 @@ def post_process_build (self):
         shutil.move ('output', build_id)
 
 
-def create_iso (self, build_id):
+def create_iso (self, build_id, message, grub_label):
     usb_file = os.path.join ('output', '%s.usb.raw' % build_id)
     iso_file = os.path.join ('output', '%s.iso' % build_id)
-    self.run_shell ('rescue-dvd-tool/create-rescue-dvd "%s" "%s"' % \
-        (usb_file, iso_file))
+    self.run_shell ('rescue-dvd-tool/create-rescue-dvd -m "%s" -g "%s" "%s" "%s"' % \
+        (message, grub_label, usb_file, iso_file))
 
 
 ## Prepare Rules ##
