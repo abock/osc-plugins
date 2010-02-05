@@ -87,7 +87,8 @@ def update_package (self, package):
 
 def build_image (self, package):
     build_no_verify = ''
-    if self.build_product_config.has_key ('build_no_verify'):
+    if self.build_product_config.has_key ('build_no_verify') and \
+		self.build_product_config['build_no_verify']:
         build_no_verify = '--no-verify'
     print 'Building image %s %s' % (package.name, build_no_verify)
     self.run_shell ("""
