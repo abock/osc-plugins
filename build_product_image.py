@@ -145,6 +145,10 @@ def post_process_build (self):
 
     self.md5sum_for_directory ('output')
 
+    os.makedirs ('output/support', 0755)
+    shutil.copy2 (os.path.join (buildroot, '.build.log'), 'output/support/kiwi-build-log')
+    self.md5sum_for_directory ('output/support')
+
     if self.build_product_config.has_key ('output_location'):
         if not os.path.isdir (self.build_product_config['output_location']):
             os.makedirs (self.build_product_config['output_location'])
