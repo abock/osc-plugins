@@ -103,13 +103,15 @@ def link_package (self, source_apiurl, dest_apiurl, source_proxy_name,
         root = tree.getroot ()
         link_cicount = root.get ('cicount')
         link_project = root.get ('project')
+        link_package = root.get ('package')
         if link_project == None or link_project == source_project:
-            link_data = '<link package="%s"'
+            link_data = '<link package="%s"' % link_package
             if not link_cicount == None:
-                print '    (local link with cicount=%s)' % link_cicount
+                print '    (local link to %s with cicount=%s)' \
+                    % (link_package, link_cicount)
                 link_data = link_data + ' cicount="%s"' % link_cicount
             else:
-                print '    (local link)'
+                print '    (local link to %s)' % link_package
             link_data = link_data + '/>' 
     except:
         pass
