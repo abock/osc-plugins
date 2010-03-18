@@ -65,17 +65,22 @@ def do_link_mirror_project (self, subcmd, opts, *args):
             source_project, dest_project, opts.source_proxy_name,
             to_link, to_remove)
 
+    total_count = len (to_link) + len (to_remove)
+    current_count = 0
+
     print 'Executing link mirror strategy...'
 
     # Create links for new packages
     for package in to_link:
-        print 'LINK: %s' % package
+        current_count = current_count + 1
+        print 'LINK: %s (%s/%s)' % (package, current_count, total_count)
         self.link_package (source_apiurl, dest_apiurl,
             source_proxy_name, source_project, dest_project, package)
 
     # Remove links for removed packages
     for package in to_remove:
-        print 'REMOVE: %s' % package
+        current_count = current_count + 1
+        print 'REMOVE: %s (%s/%s)' % (package, current_count, total_count)
         delete_package (dest_apiurl, dest_project, package)
 
     print 'Done.'
@@ -89,12 +94,25 @@ def link_package (self, source_apiurl, dest_apiurl, source_proxy_name,
     u = makeurl (dest_apiurl, ['source', dest_project, package, '_meta'])
     http_PUT (u, data = dest_meta)
 
-    # Create/overwrite the destination _link file
     link_data = '<link project="%s" package="%s"/>\n' % \
         (source_proxy_name + source_project, package)
+
+    try:
+        u = makeurl (source_apiurl, ['source', source_project, package, '_link'])
+        tree = ET.parse (http_GET (u))
+        root = tree.getroot ()
+        cicount = root.get ('cicount')
+        cicount_project = root.get ('project')
+        if not cicount == None and \
+            (cicount_project == None or cicount_project == source_project):
+            link_data = '<link package="%s" cicount="%s/>\n' % (package, cicount)
+            print '    -> cicount=%s' % cicount
+    except:
+        pass
+
+    # Create/overwrite the destination _link file
     u = makeurl (dest_apiurl, ['source', dest_project, package, '_link'])
     http_PUT (u, data = link_data)
-
 
 def print_and_confirm_strategy (self, source_apiurl, dest_apiurl,
     source_project, dest_project, source_proxy_name, to_link, to_remove):
