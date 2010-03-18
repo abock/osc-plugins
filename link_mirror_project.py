@@ -101,12 +101,16 @@ def link_package (self, source_apiurl, dest_apiurl, source_proxy_name,
         u = makeurl (source_apiurl, ['source', source_project, package, '_link'])
         tree = ET.parse (http_GET (u))
         root = tree.getroot ()
-        cicount = root.get ('cicount')
-        cicount_project = root.get ('project')
-        if not cicount == None and \
-            (cicount_project == None or cicount_project == source_project):
-            link_data = '<link package="%s" cicount="%s/>\n' % (package, cicount)
-            print '    -> cicount=%s' % cicount
+        link_cicount = root.get ('cicount')
+        link_project = root.get ('project')
+        if link_project == None or link_project == source_project:
+            link_data = '<link package="%s"'
+            if not link_cicount == None:
+                print '    (local link with cicount=%s)' % link_cicount
+                link_data = link_data + ' cicount="%s"' % link_cicount
+            else:
+                print '    (local link)'
+            link_data = link_data + '/>' 
     except:
         pass
 
